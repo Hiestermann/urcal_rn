@@ -28,13 +28,6 @@ class ChatScreen extends React.Component {
     }
 
     componentWillMount(){
-        this.props.navigator.setButtons({
-            rightButtons: [{
-                title: 'new Chat',
-                id: 'topRight',
-                icon: require('../../../img/edit.png'),
-            }],
-        });
 
         firebase.auth().onAuthStateChanged((user) => {
             if (user == null) {
@@ -42,16 +35,31 @@ class ChatScreen extends React.Component {
                     screen: 'ucral.LoginScreen',
                 }); 
             } else {
-                firebase.messaging().requestPermissions()
-                firebase.messaging().getToken().then((currentToken) => {
-                    let userRef = firebase.database().ref().child("user").child(user._user.uid).child("userdata");
-
-                    userRef.update({userToken: currentToken});
-                })
-                this.loadChats();
+                uid = user._user.uid
+                this.setupFirebase(user)
+                this.setupHeader()
             }
         });
-            
+    }
+
+    setupHeader = () => {
+        this.props.navigator.setButtons({
+            rightButtons: [{
+                title: 'new Chat',
+                id: 'topRight',
+                icon: require('../../../img/edit.png'),
+            }],
+        });
+    }
+
+    setupFirebase = (user) => {
+
+        firebase.messaging().requestPermissions()
+        firebase.messaging().getToken().then((currentToken) => {
+            let userRef = firebase.database().ref().child("user").child(user._user.uid).child("userdata");
+            userRef.update({userToken: currentToken});
+        })
+        this.loadChats();
     }
 
     setupBadgeNumber = () => {
@@ -66,26 +74,26 @@ class ChatScreen extends React.Component {
     loadChats = () => {
         uid = firebase.auth().currentUser.uid;
         ref = firebase.database().ref().child('user').child(uid).child('chats');
-        var data = this.state.data;
+        
         ref.on('child_added',(snapshot) => {
-            
+            var data = this.state.data;
             var chatInfo = snapshot;
             chatInfo.chatID = snapshot._childKeys[0];
             chatInfo.userdata = snapshot.key;
 
-            this.setupBadgeNumber()
-            var userdata = this.getUserData(snapshot.key).then((snapshot) => {
+            this.getUserData(snapshot.key).then((snapshot) => {
                 chatInfo.username = snapshot.username;     
             });
             
-            data.push(snapshot);            
+            data.push(snapshot);    
+            this.setState({data: data})        
 
         });
-        this.setState({data: data});
+        
     }
 
     getUserData = (key) => {
-
+        console.log('the key is: ',key)
         var userdataRef = firebase.database().ref().child('user').child(key).child('userdata')
            return  userdataRef.once('value').then((snapshot) => {
                 return snapshot.val();
@@ -94,7 +102,7 @@ class ChatScreen extends React.Component {
 
     componentDidMount() {
         if (this.props.chatID !== undefined) {
-            this.loadChats();
+            
             this.props.navigator.push({
                 screen: 'urcal.ChatScreen.Chat'
             });
@@ -124,8 +132,10 @@ class ChatScreen extends React.Component {
                 alwaysBounceVertical={true}
                 data={this.state.data}
                 enableEmptysections
+                extraData={this.state.data}
                 renderItem={(data) => <ChatRow {...data} onChoseChat={() => this.choseChat(data)}/> }
-                keyExtractor={() => Math.random()}/>
+                keyExtractor={() => Math.random()}
+                refresh/>
             </View>
         )
     }
@@ -151,7 +161,7 @@ class ChatRow extends React.Component {
         return(
             <TouchableHighlight onPress={this.onChoseChat}>
                 <ListItem
-                title={this.props.item.username}></ListItem>
+                title={this.props.item.userdata}></ListItem>
             </TouchableHighlight>
         )
     }
